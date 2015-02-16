@@ -1,43 +1,46 @@
-require 'formula'
+require "formula"
 
 class Root < Formula
-  homepage 'http://root.cern.ch'
-  url 'ftp://root.cern.ch/root/root_v5.34.18.source.tar.gz'
-  mirror 'https://fossies.org/linux/misc/root_v5.34.18.source.tar.gz'
-  version '5.34.18'
-  sha1 'e24e9bf8b142f2780f6cec9503409d87e4b9f8da'
-  head 'https://github.com/root-mirror/root.git', :branch => 'v5-34-00-patches'
+  homepage "http://root.cern.ch"
+  version "5.34.25"
+  sha1 "dccd5b10c136c53f2ef94a7503b569daba6422f8"
+  url "ftp://root.cern.ch/root/root_v#{version}.source.tar.gz"
+  mirror "http://ftp.riken.jp/pub/ROOT/root_v#{version}.source.tar.gz"
+  head "https://github.com/root-mirror/root.git", :branch => "v5-34-00-patches"
 
-  option 'with-qt', "Build with Qt graphics backend and GSI's Qt integration"
-  depends_on 'xrootd' => :recommended
-  depends_on 'fftw' => :optional
-  depends_on 'qt' => [:optional, 'with-qt3support']
+  bottle do
+    root_url "https://downloads.sf.net/project/machomebrew/Bottles/science"
+    revision 2
+    sha1 "6f4d211fb0d98d7c40df8737251ca110432b4274" => :yosemite
+    sha1 "b3e05b2ecf4b3905c6239fff7733a2e7c81fa24d" => :mavericks
+    sha1 "5587405366e3dc3c40e3c4d86ffef4d95134961c" => :mountain_lion
+  end
+
+  # Fixes compilation with recent xrootd; see:
+  # https://sft.its.cern.ch/jira/browse/ROOT-6998?
+  patch do
+    url "https://sft.its.cern.ch/jira/secure/attachment/17857/0001-TNetXNGFile-explicitly-include-XrdVersion.hh.patch"
+    sha1 "ded7da0a65ccd481dfd5639f7dcd899afeb2244f"
+  end
+
+  option "with-qt", "Build with Qt graphics backend and GSI's Qt integration"
+
+  depends_on "openssl"
+  depends_on "xrootd" => :recommended
+  depends_on "gsl" => :recommended
+  depends_on "fftw" => :optional
+  depends_on "qt" => [:optional, "with-qt3support"]
   depends_on :x11 => :optional
   depends_on :python
-
-  if build.with? "x11"
-    patch :p1, :DATA
-  else
-    unless build.head?
-      patch :p1 do
-        # https://sft.its.cern.ch/jira/browse/ROOT-6297
-        url "https://gist.githubusercontent.com/veprbl/9ab33daa07b68c28671c/raw/31317dfa11eba19595207dc32851a1bb2d836b0a/gistfile1.txt"
-        sha1 "6d8625fd63fce92976e27248e4ad3698741e7eba"
-      end
-    end
-  end
 
   def install
     # brew audit doesn't like non-executables in bin
     # so we will move {thisroot,setxrd}.{c,}sh to libexec
     # (and change any references to them)
-    inreplace Dir['config/roots.in', 'config/thisroot.*sh',
-                  'etc/proof/utils/pq2/setup-pq2',
-                  'man/man1/setup-pq2.1', 'README/INSTALL', 'README/README'],
-      /bin.thisroot/, 'libexec/thisroot'
-
-    # Determine architecture
-    arch = MacOS.prefer_64_bit? ? 'macosx64' : 'macosx'
+    inreplace Dir["config/roots.in", "config/thisroot.*sh",
+                  "etc/proof/utils/pq2/setup-pq2",
+                  "man/man1/setup-pq2.1", "README/INSTALL", "README/README"],
+      /bin.thisroot/, "libexec/thisroot"
 
     # N.B. that it is absolutely essential to specify
     # the --etcdir flag to the configure script.  This is
@@ -46,49 +49,42 @@ class Root < Formula
     # is not specified:
     # http://root.cern.ch/phpBB3/viewtopic.php?f=3&t=15072
     args = %W[
-      #{arch}
       --all
       --enable-builtin-glew
-    ]
-
-    if build.with? 'x11'
-      args << "--disable-cocoa"
-      args << "--enable-x11"
-    end
-
-    if build.with? 'qt'
-      args << "--enable-qt"
-      args << "--enable-qtgsi"
-    end
-
-    args += %W[
+      --enable-builtin-freetype
       --prefix=#{prefix}
       --etcdir=#{prefix}/etc/root
       --mandir=#{man}
     ]
 
-    system "./configure", *args
+    args << "--enable-mathmore" if build.with? "gsl"
 
-    # ROOT configure script does not search for Qt framework
-    if build.with? 'qt'
-      inreplace "config/Makefile.config" do |s|
-        s.gsub! /^QTLIBDIR .*/, "QTLIBDIR := -F #{Formula["qt"].opt_lib}"
-        s.gsub! /^QTLIB .*/, "QTLIB := -framework QtCore -framework QtGui -framework Qt3Support"
-      end
+    if build.with? "x11"
+      args << "--disable-cocoa"
+      args << "--enable-x11"
     end
 
+    if build.with? "qt"
+      args << "--enable-qt"
+      args << "--enable-qtgsi"
+      args << "--with-qt-libdir=#{Formula["qt"].opt_lib}"
+      args << "--with-qt-incdir=#{Formula["qt"].opt_include}"
+    end
+
+    system "./configure", *args
+
     system "make"
-    system "make install"
+    system "make", "install"
 
     # needed to run test suite
-    prefix.install 'test'
+    prefix.install "test"
 
     libexec.mkpath
     mv Dir["#{bin}/*.*sh"], libexec
   end
 
-  def test
-    system "make -C #{prefix}/test/ hsimple"
+  test do
+    system "make", "-C", "#{prefix}/test/", "hsimple"
     system "#{prefix}/test/hsimple"
   end
 
@@ -99,26 +95,12 @@ class Root < Formula
     script (.bashrc/.profile/etc.), or call them directly
     before using ROOT.
 
+    For bash users:
+      . $(brew --prefix root)/libexec/thisroot.sh
+    For zsh users:
+      pushd $(brew --prefix root) >/dev/null; . libexec/thisroot.sh; popd >/dev/null
     For csh/tcsh users:
       source `brew --prefix root`/libexec/thisroot.csh
-    For bash/zsh users:
-      . $(brew --prefix root)/libexec/thisroot.sh
     EOS
   end
 end
-
-__END__
-# Consider removing this once
-# /opt/X11/bin/freetype-config --ftversion
-# is reporting version >=2.5.1
---- a/graf2d/freetype/Module.mk
-+++ b/graf2d/freetype/Module.mk
-@@ -8,7 +8,7 @@
- ifneq ($(BUILTINFREETYPE),yes)
- 
- FREETYPELIBF    := $(shell freetype-config --libs)
--FREETYPEINC     := $(shell freetype-config --cflags)
-+FREETYPEINC     := $(subst -I,-isystem,$(shell freetype-config --cflags)) -Wp,-v
- FREETYPELIB     := $(filter -l%,$(FREETYPELIBF))
- FREETYPELDFLAGS := $(filter-out -l%,$(FREETYPELIBF))
- FREETYPEDEP     :=

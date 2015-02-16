@@ -7,7 +7,7 @@ class Blasr < Formula
   sha1 'ac6add1ba8a82cac2515da36c0ec53060c20ea0f'
   head 'https://github.com/PacificBiosciences/blasr.git'
 
-  depends_on 'hdf5' => 'enable-cxx'
+  depends_on "hdf5" => "with-cxx"
 
   fails_with :clang do
     build 503
@@ -30,8 +30,8 @@ class Blasr < Formula
   def install
     hdf5 = Formula["hdf5"]
     system "make", "STATIC=",
-      "HDF5INCLUDEDIR=#{hdf5.include}",
-      "HDF5LIBDIR=#{hdf5.lib}"
+      "HDF5INCLUDEDIR=#{hdf5.opt_include}",
+      "HDF5LIBDIR=#{hdf5.opt_lib}"
     system 'make', 'install', 'PREFIX=' + prefix
   end
 

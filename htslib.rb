@@ -1,19 +1,26 @@
-require 'formula'
-
 class Htslib < Formula
-  homepage 'https://github.com/samtools/htslib'
-  version '0.2.0-rc11'
-  url "https://github.com/samtools/htslib/archive/#{version}.tar.gz"
-  sha1 '669d8effa1038a1d11f88fc90950f9262ff18e3c'
-  head 'https://github.com/samtools/htslib.git'
+  homepage "http://www.htslib.org/"
+  # tag "bioinformatics"
+
+  url "https://github.com/samtools/htslib/archive/1.2.tar.gz"
+  sha1 "de903ec8f92ea86872dbd0dd7f5d419c58366e8b"
+  head "https://github.com/samtools/htslib.git"
+
+  bottle do
+    root_url "https://downloads.sf.net/project/machomebrew/Bottles/science"
+    cellar :any
+    sha1 "0e80239d79450285119454def8bc5b9bf4eaa50f" => :yosemite
+    sha1 "e5ee799c770723753f546a28d7757a6419e292b8" => :mavericks
+    sha1 "26310861d0deb4a8669bb499b138024fc5bc7d95" => :mountain_lion
+  end
 
   conflicts_with "tabix", :because => "both htslib and tabix install bin/tabix"
 
   def install
     # Write version to avoid 0.0.1 version information output from Makefile
     system "echo '#define HTS_VERSION \"#{version}\"' > version.h"
-    system 'make'
-    system 'make', 'install', 'prefix=' + prefix
+    system "make"
+    system "make", "install", "prefix=" + prefix
   end
 
   test do

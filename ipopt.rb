@@ -1,41 +1,35 @@
-require 'formula'
-
 class Ipopt < Formula
-  homepage 'https://projects.coin-or.org/Ipopt'
-  url 'http://www.coin-or.org/download/source/Ipopt/Ipopt-3.11.8.tgz'
-  sha1 '530d718fb5a0c994c305deb3bcfdacc16cc0e2ef'
-  head 'https://projects.coin-or.org/svn/Ipopt/trunk', :using => :svn
+  homepage "https://projects.coin-or.org/Ipopt"
+  url "http://www.coin-or.org/download/source/Ipopt/Ipopt-3.11.10.tgz"
+  sha1 "50a28e257ddbf2df0cdc2d1edaf55cd021d83cb5"
+  head "https://projects.coin-or.org/svn/Ipopt/trunk", :using => :svn
+  revision 1
 
-  option 'without-check', 'Skip build-time tests (not recommended)'
+  bottle do
+    root_url "https://downloads.sf.net/project/machomebrew/Bottles/science"
+    sha1 "26280861eec2ab79ec9817c72391620fc7648076" => :yosemite
+    sha1 "d601b717f9cf9a3a7898dbc3834795681f861444" => :mavericks
+    sha1 "97146c29a7ba532f7c60ec9b10e01092c0540891" => :mountain_lion
+  end
 
-  depends_on 'asl' => :recommended
-  depends_on 'openblas' => :optional
-  depends_on 'pkg-config' => :build
-  depends_on 'mumps' => (build.with? 'openblas') ? ['with-openblas'] : :build
+  option "without-check", "Skip build-time tests (not recommended)"
+
+  depends_on "asl" => :recommended
+  depends_on "openblas" => :optional
+  depends_on "pkg-config" => :build
+
+  # IPOPT is not able to use parallel MUMPS.
+  depends_on "mumps" => ["without-mpi"] + ((build.with? "openblas") ? ["with-openblas"] : [])
 
   depends_on :fortran
 
-  def mumps_options
-    Tab.for_formula(Formula["mumps"]).used_options
-  end
-
   def install
-    ENV.delete('MPICC')  # configure will pick these up and use them to link
-    ENV.delete('MPIFC')  # which leads to the linker crashing.
-    ENV.delete('MPICXX')
-    mumps_libs = %w[-ldmumps -lmumps_common -lpord]
-
-    # See whether the parallel or sequential MUMPS library was built.
-    if mumps_options.include? 'without-mpi'
-      mumps_libs << '-lmpiseq'
-      mumps_incdir = Formula["mumps"].libexec / 'include'
-    else
-      # The MPI libs were installed as a MUMPS dependency.
-      mumps_libs += %w[-lmpi_cxx -lmpi_mpifh]
-      mumps_incdir = Formula["mumps"].include
-      ENV.append_to_cflags "-DHAVE_MPI_INITIALIZED"  # Mumps initializes MPI.
-    end
-    mumps_libcmd = "-L#{Formula["mumps"].lib} " + mumps_libs.join(' ')
+    ENV.delete("MPICC")  # configure will pick these up and use them to link
+    ENV.delete("MPIFC")  # which leads to the linker crashing.
+    ENV.delete("MPICXX")
+    mumps_libs = %w[-ldmumps -lmumps_common -lpord -lmpiseq]
+    mumps_incdir = Formula["mumps"].libexec / "include"
+    mumps_libcmd = "-L#{Formula["mumps"].opt_lib} " + mumps_libs.join(" ")
 
     args = ["--disable-debug",
             "--disable-dependency-tracking",
@@ -45,23 +39,28 @@ class Ipopt < Formula
             "--enable-shared",
             "--enable-static"]
 
-    if build.with? 'openblas'
-      args << "--with-blas-incdir=#{Formula["openblas"].include}"
-      args << "--with-blas-lib=-L#{Formula["openblas"].lib} -lopenblas"
-      args << "--with-lapack-incdir=#{Formula["openblas"].include}"
-      args << "--with-lapack-lib=-L#{Formula["openblas"].lib} -lopenblas"
+    if build.with? "openblas"
+      args << "--with-blas-incdir=#{Formula["openblas"].opt_include}"
+      args << "--with-blas-lib=-L#{Formula["openblas"].opt_lib} -lopenblas"
+      args << "--with-lapack-incdir=#{Formula["openblas"].opt_include}"
+      args << "--with-lapack-lib=-L#{Formula["openblas"].opt_lib} -lopenblas"
     end
 
-    if build.with? 'asl'
-      args << "--with-asl-incdir=#{Formula["asl"].include}/asl"
-      args << "--with-asl-lib=-L#{Formula["asl"].lib} -lasl -lfuncadd0"
+    if build.with? "asl"
+      args << "--with-asl-incdir=#{Formula["asl"].opt_include}/asl"
+      args << "--with-asl-lib=-L#{Formula["asl"].opt_lib} -lasl"
     end
 
     system "./configure", *args
     system "make"
     ENV.deparallelize # Needs a serialized install
-    system "make test" if build.with? "check"
-    system "make install"
+    system "make", "test" if build.with? "check"
+    system "make", "install"
+  end
+
+  test do
+    # IPOPT still fails to converge on the Waechter-Biegler problem?!?!
+    system "#{bin}/ipopt", "#{Formula["asl"].opt_share}/asl/example/examples/wb" if build.with? "asl"
   end
 end
 

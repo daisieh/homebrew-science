@@ -1,12 +1,18 @@
-require 'formula'
-
 class Bwa < Formula
-  homepage 'http://bio-bwa.sourceforge.net/'
-  #doi '10.1093/bioinformatics/btp324'
-  url 'https://downloads.sf.net/project/bio-bwa/bwa-0.7.10.tar.bz2'
-  sha1 '4a8b692d5835993fdb8dce350570951076daac4f'
+  homepage "http://bio-bwa.sourceforge.net/"
+  # doi "10.1093/bioinformatics/btp324"
+  # tag "bioinformatics"
+  url "https://downloads.sf.net/project/bio-bwa/bwa-0.7.12.tar.bz2"
+  sha1 "6389ca75328bae6d946bfdd58ff4beb0feebaedd"
+  head "https://github.com/lh3/bwa.git"
 
-  head 'https://github.com/lh3/bwa.git'
+  bottle do
+    root_url "https://downloads.sf.net/project/machomebrew/Bottles/science"
+    cellar :any
+    sha1 "476b7108c5755990eca5a49b071861d800d405d6" => :yosemite
+    sha1 "b6536565e0660cc6e9e6351c1c0420c4f9c2059d" => :mavericks
+    sha1 "f90f7796e699f43d903414d645062510be77fab7" => :mountain_lion
+  end
 
   def install
     system "make", "CC=#{ENV.cc}", "CFLAGS=#{ENV.cflags}"
@@ -16,7 +22,7 @@ class Bwa < Formula
   end
 
   test do
-    (testpath/"test.fasta").write "MEEPQSDPSV"
+    (testpath/"test.fasta").write ">0\nMEEPQSDPSV\n"
     system "#{bin}/bwa index test.fasta"
     assert File.exist?("test.fasta.bwt")
   end

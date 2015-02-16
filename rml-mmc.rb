@@ -14,13 +14,13 @@ class RmlMmc < Formula
 
   def install
     ENV.j1
-    ENV['SMLNJ_HOME'] = Formula["smlnj"].prefix/'SMLNJ_HOME'
+    ENV['SMLNJ_HOME'] = Formula["smlnj"].opt_prefix/'SMLNJ_HOME'
 
     system "./configure --prefix=#{prefix}"
     system "make install"
   end
 
-  def test
+  test do
     system "#{bin}/rml", "-v"
   end
 end
